@@ -7,7 +7,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
-public class HandlebarsTemplateEngine implements PromptTemplateEngine {
+public class HandlebarsPromptTemplateEngine implements PromptTemplateEngine {
 
     @Override
     public Mono<String> renderAsync(String s, SKContext skContext) {
@@ -18,4 +18,7 @@ public class HandlebarsTemplateEngine implements PromptTemplateEngine {
     public List<Block> extractBlocks(String s) {
         return null;
     }
+
+
+
 }
