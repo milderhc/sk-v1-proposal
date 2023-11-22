@@ -2,11 +2,12 @@ name: SimpleChat
 template: |
   {{#message role="system"}}
   You are a helpful assistant.
+  Do not answer with XML or any format.
   {{/message}}
 
   {{#each messages}}
-    {{#message role=Role}}
-      {{~Content~}}
+    {{#message role=role}}
+      {{~content~}}
     {{/message}}
   {{/each}}
 template_format: handlebars
