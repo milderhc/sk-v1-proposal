@@ -7,8 +7,4 @@ public class SKBuilders {
     public static Kernel.Builder kernel() {
         return BuildersSingleton.INST.getInstance(Kernel.Builder.class);
     }
-
-    public static TextCompletion.Builder textCompletion() {
-        return BuildersSingleton.INST.getInstance(TextCompletion.Builder.class);
-    }
 }

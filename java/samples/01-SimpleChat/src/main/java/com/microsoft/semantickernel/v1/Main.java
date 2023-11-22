@@ -1,17 +1,14 @@
 package com.microsoft.semantickernel.v1;
 
 import com.azure.ai.openai.OpenAIAsyncClient;
+import com.azure.ai.openai.OpenAIClientBuilder;
 import com.microsoft.semantickernel.Kernel;
 import com.microsoft.semantickernel.SKBuilders;
+import com.azure.core.credential.KeyCredential;
 import com.microsoft.semantickernel.chatcompletion.ChatCompletion;
 import com.microsoft.semantickernel.chatcompletion.ChatHistory;
-import com.microsoft.semantickernel.connectors.ai.openai.chatcompletion.OpenAIChatHistory;
-import com.microsoft.semantickernel.connectors.ai.openai.util.OpenAIClientProvider;
 import com.microsoft.semantickernel.exceptions.ConfigurationException;
-import com.microsoft.semantickernel.textcompletion.TextCompletion;
-import com.microsoft.semantickernel.v1.functions.FunctionResult;
 import com.microsoft.semantickernel.v1.semanticfunctions.SemanticFunction;
-import com.microsoft.semantickernel.v1.templateengine.HandlebarsPromptTemplateEngine;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -19,43 +16,42 @@ import java.io.InputStreamReader;
 import java.util.Map;
 
 public class Main {
-    public static void main(String[] args) throws ConfigurationException, IOException {
-        OpenAIAsyncClient client = OpenAIClientProvider.getClient();
 
-        Kernel kernel = SKBuilders.kernel()
-                .withDefaultAIService(SKBuilders.chatCompletion()
-                        .withOpenAIClient(client)
-                        .withModelId("gpt-35-turbo")
-                        .build())
-                .withPromptTemplateEngine(new HandlebarsPromptTemplateEngine())
+    final static String GPT_35_DEPLOYMENT_NAME = System.getenv("GPT_35_DEPLOYMENT_NAME");
+    final static String GPT_4_DEPLOYMENT_NAME = System.getenv("GPT_4_DEPLOYMENT_NAME");
+    final static String AZURE_OPENAI_ENDPOINT = System.getenv("AZURE_OPENAI_ENDPOINT");
+    final static String AZURE_OPENAI_API_KEY = System.getenv("AZURE_OPENAI_API_KEY");
+    final static String CURRENT_DIRECTORY = System.getProperty("user.dir");
+
+    public static void main(String[] args) throws IOException {
+        OpenAIAsyncClient client = new OpenAIClientBuilder()
+                .credential(new KeyCredential(AZURE_OPENAI_API_KEY))
+                .endpoint(AZURE_OPENAI_ENDPOINT)
+                .buildAsyncClient();
+
+        ChatCompletion<ChatHistory> gpt35Turbo = ChatCompletion.builder()
+                .withOpenAIClient(client)
+                .withModelId(GPT_35_DEPLOYMENT_NAME)
                 .build();
 
-        ChatCompletion<OpenAIChatHistory> chat = kernel.getService(null, ChatCompletion.class);
-        ChatHistory chatHistory = chat.createNewChat("  You are a helpful assistant.");
+        Kernel kernel = SKBuilders.kernel()
+                .withDefaultAIService(gpt35Turbo)
+                .build();
 
         SemanticFunction f = SemanticFunction.getFunctionFromYaml("Plugins/ChatPlugin/SimpleChat.prompt.yaml");
-        //TODO register automatically
         f.registerOnKernel(kernel);
 
-        String userInput;
-        BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
+        ChatHistory chatHistory = gpt35Turbo.createNewChat("");
 
+        BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
         while (true) {
+            System.out.print("User > ");
+            String input = bf.readLine();
+            chatHistory.addMessage(ChatHistory.AuthorRoles.User, input);
+
             String assistantMessage = f.invokeAsync(Map.of("messages", chatHistory)).block().getResult();
             chatHistory.addMessage(ChatHistory.AuthorRoles.Assistant, assistantMessage);
-            messageOutputAsync(chatHistory);
-
-            userInput = bf.readLine();
-            f.invokeAsync(Map.of("messages", chatHistory)).block().getResult();
-            chatHistory.addMessage(ChatHistory.AuthorRoles.User, userInput);
-            messageOutputAsync(chatHistory);
+            System.out.println("Assistant > " + assistantMessage);
         }
-    }
-
-    private static void messageOutputAsync(ChatHistory chatHistory) {
-        ChatHistory.Message message = chatHistory.getMessages().get(chatHistory.getMessages().size() - 1);
-
-        System.out.println(message.getAuthorRoles() + ": " + message.getContent());
-        System.out.println("------------------------");
     }
 }
