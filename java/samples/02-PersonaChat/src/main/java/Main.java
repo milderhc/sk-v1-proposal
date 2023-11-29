@@ -1,5 +1,5 @@
 
-import java.nio.file.Path;
+import java.io.IOException;
 
 import com.azure.ai.openai.OpenAIAsyncClient;
 import com.azure.ai.openai.OpenAIClientBuilder;
@@ -12,8 +12,8 @@ import com.microsoft.semantickernel.chatcompletion.ChatHistory;
 import com.microsoft.semantickernel.exceptions.ConfigurationException;
 import com.microsoft.semantickernel.orchestration.ContextVariables;
 import com.microsoft.semantickernel.orchestration.SKFunction;
-import com.microsoft.semantickernel.v1.semanticfunctions.SemanticFunction;
-import com.microsoft.semantickernel.v1.templateengine.HandlebarsPromptTemplateEngine;
+import com.microsoft.semantickernel.semanticfunctions.SemanticFunction;
+import com.microsoft.semantickernel.templateengine.handlebars.HandlebarsPromptTemplateEngine;
 
 public class Main {
     
@@ -24,7 +24,7 @@ public class Main {
     final static String CURRENT_DIRECTORY = System.getProperty("user.dir");
     
     
-    public static void main(String[] args) throws ConfigurationException {
+    public static void main(String[] args) throws ConfigurationException, IOException {
 
         OpenAIAsyncClient client = new OpenAIClientBuilder()
             .credential(new KeyCredential(AZURE_OPENAI_API_KEY))
@@ -33,8 +33,7 @@ public class Main {
 
 
         // Initialize the required functions and services for the kernel
-        Path yamlPath = Path.of(CURRENT_DIRECTORY + "/Plugins/ChatPlugin/PersonaChat.prompt.yaml");
-        SKFunction chatFunction = SemanticFunction.fromYaml(yamlPath);
+        SKFunction chatFunction = SemanticFunction.fromYaml("Plugins/ChatPlugin/PersonaChat.prompt.yaml");
 
         ChatCompletion<ChatHistory> gpt35Turbo = ChatCompletion.builder()
             .withOpenAIClient(client)
@@ -76,7 +75,7 @@ public class Main {
                 functionResult -> {
                     functionResult.<String>getStreamingValueAsync().subscribe(
                         message -> System.console().printf(message)
-                    ); 
+                    );
                     String message = functionResult.<String>getValueAsync().block();
                     chatHistory.addAssistantMessage(message);
                 }
