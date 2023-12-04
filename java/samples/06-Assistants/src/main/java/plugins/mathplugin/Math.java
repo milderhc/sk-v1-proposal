@@ -28,7 +28,12 @@ public class Math
         returnDescription = "The answer to the math problem.",
         samples = {
             @SKSample(
-                inputs = "{\"math_problem\",\"If I started with $120 in the stock market, how much would I have after 10 years if the growth rate was 5%?\"}",
+                inputs = """
+                  {
+                    "math_problem",
+                    "If I started with $120 in the stock market, how much would I have after 10 years if the growth rate was 5%?"
+                  }
+                  """,
                 output = "After 10 years, starting with $120, and with a growth rate of 5%, you would have $195.47 in the stock market."
             )
         }
@@ -37,7 +42,7 @@ public class Math
         Kernel kernel,
         @SKFunctionParameters(name="math_problem", description="A description of a math problem; use the GenerateMathProblem function to create one.")
         String math_problem
-    ) 
+    )
     {
         int maxTries = 1;
         HandlebarsPlan lastPlan = null;
@@ -45,26 +50,26 @@ public class Math
 
         // Create the planner
         var planner = new HandlebarsPlanner(
-            kernel, 
+            kernel,
             new HandlebarsPlannerConfiguration()
                 .setIncludedPlugins(List.of("Math"))
                 .setIncludedFunctions(List.of("Math.PerformMath", "Math.GenerateMathProblem"))
-                // TODO: setLastPlan and setLastError are problematic 
+                // TODO: setLastPlan and setLastError are problematic
                 // (null to begin with, how to set them later, does planner need to be recreated each time?)
                 //.setLastPlan(lastPlan) // Pass in the last plan in case we want to try again
                 //.setLastError(lastError.getMessage()) // Pass in the last error to avoid trying the same thing again
         );
 
-        Mono<String> plan = 
+        Mono<String> plan =
             planner.createPlanAsync("Solve the following math problem.\n\n" + math_problem)
                 .flatMap(handlebarsPlan -> handlebarsPlan.invokeAsync(kernel, Map.of()))
                 .retry(maxTries)
                 .flatMap(result -> result.<String>getValueAsync());
 
         return plan;
-        
+
 }
-    
+
 
     @DefineSKFunction(
         name = "Math.Add",
@@ -72,7 +77,11 @@ public class Math
         returnDescription = "The summation of the numbers.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":1, \"number2\":2}",
+                inputs = """
+                {
+                  "number1":1,
+                  "number2":2
+                }""",
                 output = "3"
             )
         }
@@ -92,7 +101,11 @@ public class Math
         returnDescription = "The difference between the minuend and subtrahend.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":5, \"number2\":2}",
+                inputs = """
+                {
+                  "number1":5,
+                  "number2":2
+                }""",
                 output = "3"
             )
         }
@@ -111,7 +124,11 @@ public class Math
         returnDescription = "The product of the numbers.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":5, \"number2\":2}",
+                inputs = """
+                {
+                  "number1":5,
+                  "number2":2
+                }""",
                 output = "10"
             )
         }
@@ -130,7 +147,11 @@ public class Math
         returnDescription = "The quotient of the dividend and divisor.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":10, \"number2\":2}",
+                inputs = """
+                {
+                  "number1":10,
+                  "number2":2
+                }""",
                 output = "5"
             )
         }
@@ -149,7 +170,11 @@ public class Math
         returnDescription = "The remainder of the dividend and divisor.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":10, \"number2\":3}",
+                inputs = """
+                {
+                  "number1":10,
+                  "number2":3
+                }""",
                 output = "1"
             )
         }
@@ -169,7 +194,10 @@ public class Math
         returnDescription = "The absolute value of the number.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":-10}",
+                inputs = """
+                {
+                  "number1":-10
+                }""",
                 output = "10"
             )
         }
@@ -187,7 +215,10 @@ public class Math
         returnDescription = "The ceiling of the number.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":5.1}",
+                inputs = """
+                {
+                  "number1":5.1
+                }""",
                 output = "6"
             )
         }
@@ -199,14 +230,17 @@ public class Math
         return java.lang.Math.ceil(number1);
     }
 
-    
+
     @DefineSKFunction(
         name = "Math.Floor",
         description = "Gets the floor of a single number.",
         returnDescription = "The floor of the number.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":5.9}",
+                inputs = """
+                {
+                  "number1":5.9
+                }""",
                 output = "5"
             )
         }
@@ -224,7 +258,11 @@ public class Math
         returnDescription = "The maximum of the two numbers.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":5, \"number2\":10}",
+                inputs = """
+                {
+                  "number1":5,
+                  "number2":10
+                }""",
                 output = "10"
             )
         }
@@ -243,7 +281,11 @@ public class Math
         returnDescription = "The minimum of the two numbers.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":5, \"number2\":10}",
+                inputs = """
+                {
+                  "number1":5,
+                  "number2":10
+                }""",
                 output = "5"
             )
         }
@@ -262,7 +304,10 @@ public class Math
         returnDescription = "The sign of the number.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":-10}",
+                inputs = """
+                {
+                  "number1":-10
+                }""",
                 output = "-1"
             )
         }
@@ -280,7 +325,10 @@ public class Math
         returnDescription = "The square root of the number.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":25}",
+                inputs = """
+                {
+                  "number1":25
+                }""",
                 output = "5"
             )
         }
@@ -298,7 +346,10 @@ public class Math
         returnDescription = "The sine of the number.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":0}",
+                inputs = """
+                {
+                  "number1":0
+                }""",
                 output = "0"
             )
         }
@@ -316,7 +367,10 @@ public class Math
         returnDescription = "The cosine of the number.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":0}",
+                inputs = """
+                {
+                  "number1":0
+                }""",
                 output = "1"
             )
         }
@@ -334,7 +388,10 @@ public class Math
         returnDescription = "The tangent of the number.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":0}",
+                inputs = """
+                {
+                  "number1":0
+                }""",
                 output = "0"
             )
         }
@@ -352,7 +409,11 @@ public class Math
         returnDescription = "The number raised to the power.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":5, \"number2\":2}",
+                inputs = """
+                {
+                  "number1":5,
+                  "number2":2
+                }""",
                 output = "25"
             )
         }
@@ -371,7 +432,11 @@ public class Math
         returnDescription = "The natural logarithm of the number.",
         samples = {
             @SKSample(
-                inputs = "{\"number1\":10, \"number2\":10}",
+                inputs = """
+                {
+                  "number1":10,
+                  "number2":10
+                }""",
                 output = "2.302585092994046"
             )
         }
@@ -396,7 +461,11 @@ public class Math
         returnDescription = "The rounded number.",
         samples = {
             @SKSample(
-                inputs = "{\"number\":1.23456, \"digits\":2}",
+                inputs = """
+                {
+                  "number":1.23456,
+                  "digits":2
+                }""",
                 output = "1.23"
             )
         }

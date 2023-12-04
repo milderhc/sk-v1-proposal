@@ -107,7 +107,7 @@ public class Main {
 
                   messages.forEach(
                       message -> {
-                          System.console().printf("Assistant > " + message);
+                          System.console().printf("Assistant > " + message + "\n");
                       }
                   );
                 }
