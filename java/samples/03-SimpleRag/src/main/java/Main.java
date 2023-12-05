@@ -1,5 +1,5 @@
 
-import java.nio.file.Path;
+import java.io.IOException;
 
 import com.azure.ai.openai.OpenAIAsyncClient;
 import com.azure.ai.openai.OpenAIClientBuilder;
@@ -14,9 +14,8 @@ import com.microsoft.semantickernel.nativefunction.NativeFunction;
 import com.microsoft.semantickernel.orchestration.ContextVariables;
 import com.microsoft.semantickernel.orchestration.SKFunction;
 import com.microsoft.semantickernel.plugin.Plugin;
-import com.microsoft.semantickernel.v1.semanticfunctions.SemanticFunction;
-import com.microsoft.semantickernel.v1.templateengine.HandlebarsPromptTemplateEngine;
-
+import com.microsoft.semantickernel.semanticfunctions.SemanticFunction;
+import com.microsoft.semantickernel.templateengine.handlebars.HandlebarsPromptTemplateEngine;
 import plugins.searchplugin.Search;
 
 public class Main {
@@ -29,7 +28,7 @@ public class Main {
     final static String CURRENT_DIRECTORY = System.getProperty("user.dir");
     
     
-    public static void main(String[] args) throws ConfigurationException {
+    public static void main(String[] args) throws IOException {
 
         OpenAIAsyncClient client = new OpenAIClientBuilder()
             .credential(new KeyCredential(AZURE_OPENAI_API_KEY))
@@ -38,8 +37,7 @@ public class Main {
 
 
         // Initialize the required functions and services for the kernel
-        Path yamlPath = Path.of(CURRENT_DIRECTORY + "/Plugins/ChatPlugin/GroundedChat.prompt.yaml");
-        SKFunction chatFunction = SemanticFunction.fromYaml(yamlPath);
+        SKFunction chatFunction = SemanticFunction.fromYaml("Plugins/ChatPlugin/GroundedChat.prompt.yaml");
 
         ChatCompletion<ChatHistory> gpt35Turbo = ChatCompletion.builder()
             .withOpenAIClient(client)
