@@ -52,7 +52,6 @@ public class Main {
         // Create the search plugin
         Plugin searchPlugin = new com.microsoft.semantickernel.v1.plugin.Plugin(
             "Search",
-            "Searches Bing for the given query",
             NativeFunction.getFunctionsFromObject(new Search(BING_API_KEY))
         );                
 
