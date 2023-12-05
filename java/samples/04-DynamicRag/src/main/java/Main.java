@@ -1,7 +1,6 @@
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.nio.file.Path;
+import java.util.Collection;
 
 import com.azure.ai.openai.OpenAIAsyncClient;
 import com.azure.ai.openai.OpenAIClientBuilder;
@@ -12,21 +11,25 @@ import com.microsoft.semantickernel.SKBuilders;
 import com.microsoft.semantickernel.chatcompletion.ChatCompletion;
 import com.microsoft.semantickernel.chatcompletion.ChatHistory;
 import com.microsoft.semantickernel.exceptions.ConfigurationException;
+import com.microsoft.semantickernel.nativefunction.NativeFunction;
 import com.microsoft.semantickernel.orchestration.ContextVariables;
 import com.microsoft.semantickernel.orchestration.SKFunction;
-import com.microsoft.semantickernel.semanticfunctions.SemanticFunction;
-import com.microsoft.semantickernel.templateengine.handlebars.HandlebarsPromptTemplateEngine;
+import com.microsoft.semantickernel.plugin.Plugin;
+import com.microsoft.semantickernel.v1.semanticfunctions.SemanticFunction;
+import com.microsoft.semantickernel.v1.templateengine.HandlebarsPromptTemplateEngine;
+
+import plugins.mathplugin.Math;
 
 public class Main {
     
-    final static String GPT_35_DEPLOYMENT_NAME = System.getenv("GPT_35_DEPLOYMENT_NAME");
+    final static String GPT_35_TURBO_DEPLOYMENT_NAME = System.getenv("GPT_35_TURBO_DEPLOYMENT_NAME");
     final static String GPT_4_DEPLOYMENT_NAME = System.getenv("GPT_4_DEPLOYMENT_NAME");
     final static String AZURE_OPENAI_ENDPOINT = System.getenv("AZURE_OPENAI_ENDPOINT");
     final static String AZURE_OPENAI_API_KEY = System.getenv("AZURE_OPENAI_API_KEY");
     final static String CURRENT_DIRECTORY = System.getProperty("user.dir");
     
     
-    public static void main(String[] args) throws ConfigurationException, IOException {
+    public static void main(String[] args) throws ConfigurationException {
 
         OpenAIAsyncClient client = new OpenAIClientBuilder()
             .credential(new KeyCredential(AZURE_OPENAI_API_KEY))
@@ -35,11 +38,12 @@ public class Main {
 
 
         // Initialize the required functions and services for the kernel
-        SKFunction chatFunction = SemanticFunction.fromYaml("Plugins/ChatPlugin/PersonaChat.prompt.yaml");
+        Path yamlPath = Path.of(CURRENT_DIRECTORY + "/Plugins/ChatPlugin/Chat.prompt.yaml");
+        SKFunction chatFunction = SemanticFunction.fromYaml(yamlPath);
 
         ChatCompletion<ChatHistory> gpt35Turbo = ChatCompletion.builder()
             .withOpenAIClient(client)
-            .withModelId(GPT_35_DEPLOYMENT_NAME)
+            .withModelId(GPT_35_TURBO_DEPLOYMENT_NAME)
             .build();
 
         ChatCompletion<ChatHistory> gpt4 = ChatCompletion.builder()
@@ -47,25 +51,39 @@ public class Main {
                 .withModelId(GPT_4_DEPLOYMENT_NAME)
                 .build();
 
+        // Create the intent plugin
+        Plugin intentPlugin = new com.microsoft.semantickernel.v1.plugin.Plugin(
+            "Intent",
+            "Returns a single key that represents the action to be performed next",
+            SemanticFunction.fromYaml(Path.of(CURRENT_DIRECTORY + "/Plugins/IntentPlugin/GetNextStep.prompt.yaml"))
+        );  
+        
+        // Create the math plugin
+        Collection<SKFunction> mathFunctions = NativeFunction.getFunctionsFromObject(new Math());
+        mathFunctions.add(SemanticFunction.fromYaml(Path.of(CURRENT_DIRECTORY + "/Plugins/MathPlugin/GetNextStep.prompt.yaml")));
+        Plugin math = new com.microsoft.semantickernel.v1.plugin.Plugin(
+            "Math",
+            "Performs basic math operations",
+            mathFunctions
+        );
 
         Kernel kernel = SKBuilders.kernel()
             .withDefaultAIService(gpt35Turbo)
             .withDefaultAIService(gpt4)
             .withPromptTemplateEngine(new HandlebarsPromptTemplateEngine())
+            .withPlugins(intentPlugin, math)
             .build();
 
         ChatHistory chatHistory = gpt35Turbo.createNewChat();
-
-        BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
         while(true)
         {
-            System.out.print("\nUser > ");
-            String input = bf.readLine();
+            String input = System.console().readLine("User > ");
             chatHistory.addUserMessage(input);
 
             // Run the chat function
-            // The persona chat function uses the persona variable to set the persona of the chat using a system message
-            // See Plugins/ChatPlugin/PersonaChat.prompt.yaml for the full prompt
+            // The dynamic chat function uses a planner to create a plan that solves a math problem
+            // See Plugins/MathPlugin/Math.cs for the code that runs the planner
+            // See Plugins/ChatPlugin/GroundedChat.prompt.yaml for the full prompt
             KernelResult result = kernel.runAsync(
                 true, // streaming
                 ContextVariables.builder()
@@ -75,16 +93,16 @@ public class Main {
                 chatFunction
             ).block();
 
-            System.out.print("Assistant > ");
+            System.console().printf("Assistant > ");
             result.functionResults().forEach(
                 functionResult -> {
                     functionResult.<String>getStreamingValueAsync().subscribe(
-                        message -> System.out.print(message)
-                    );
+                        message -> System.console().printf(message)
+                    ); 
                     String message = functionResult.<String>getValueAsync().block();
                     chatHistory.addAssistantMessage(message);
                 }
             );
-        }            
-    }
+        }
+    }               
 }

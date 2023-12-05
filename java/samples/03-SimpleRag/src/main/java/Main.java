@@ -9,6 +9,7 @@ import com.microsoft.semantickernel.KernelResult;
 import com.microsoft.semantickernel.SKBuilders;
 import com.microsoft.semantickernel.chatcompletion.ChatCompletion;
 import com.microsoft.semantickernel.chatcompletion.ChatHistory;
+import com.microsoft.semantickernel.exceptions.ConfigurationException;
 import com.microsoft.semantickernel.nativefunction.NativeFunction;
 import com.microsoft.semantickernel.orchestration.ContextVariables;
 import com.microsoft.semantickernel.orchestration.SKFunction;
@@ -34,8 +35,9 @@ public class Main {
             .endpoint(AZURE_OPENAI_ENDPOINT)
             .buildAsyncClient();
 
+
         // Initialize the required functions and services for the kernel
-        SKFunction chatFunction = SemanticFunction.fromYaml("Plugins/ChatPlugin/PersonaChat.prompt.yaml");
+        SKFunction chatFunction = SemanticFunction.fromYaml("Plugins/ChatPlugin/GroundedChat.prompt.yaml");
 
         ChatCompletion<ChatHistory> gpt35Turbo = ChatCompletion.builder()
             .withOpenAIClient(client)
@@ -51,8 +53,8 @@ public class Main {
         Plugin searchPlugin = new com.microsoft.semantickernel.v1.plugin.Plugin(
             "Search",
             "Searches Bing for the given query",
-            NativeFunction.getFunctionsFromObject(new Search(BING_API_KEY)).toArray(new SKFunction[0])
-        );
+            NativeFunction.getFunctionsFromObject(new Search(BING_API_KEY))
+        );                
 
         Kernel kernel = SKBuilders.kernel()
             .withDefaultAIService(gpt35Turbo)
@@ -67,9 +69,9 @@ public class Main {
             String input = System.console().readLine("User > ");
             chatHistory.addUserMessage(input);
 
-            // Run the simple chat
-            // The simple chat function uses the messages variable to generate the next message
-            // see Plugins/ChatPlugin/SimpleChat.prompt.yaml for the full prompt
+            // Run the chat function
+            // The grounded chat function uses the search plugin to perform a Bing search to ground the response
+            // See Plugins/ChatPlugin/GroundedChat.prompt.yaml for the full prompt
             KernelResult result = kernel.runAsync(
                 true, // streaming
                 ContextVariables.builder()
@@ -84,7 +86,7 @@ public class Main {
                 functionResult -> {
                     functionResult.<String>getStreamingValueAsync().subscribe(
                         message -> System.console().printf(message)
-                    );
+                    ); 
                     String message = functionResult.<String>getValueAsync().block();
                     chatHistory.addAssistantMessage(message);
                 }
