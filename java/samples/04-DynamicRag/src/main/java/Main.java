@@ -1,5 +1,5 @@
 
-import java.nio.file.Path;
+import java.io.IOException;
 import java.util.Collection;
 
 import com.azure.ai.openai.OpenAIAsyncClient;
@@ -15,8 +15,8 @@ import com.microsoft.semantickernel.nativefunction.NativeFunction;
 import com.microsoft.semantickernel.orchestration.ContextVariables;
 import com.microsoft.semantickernel.orchestration.SKFunction;
 import com.microsoft.semantickernel.plugin.Plugin;
-import com.microsoft.semantickernel.v1.semanticfunctions.SemanticFunction;
-import com.microsoft.semantickernel.v1.templateengine.HandlebarsPromptTemplateEngine;
+import com.microsoft.semantickernel.semanticfunctions.SemanticFunction;
+import com.microsoft.semantickernel.templateengine.handlebars.HandlebarsPromptTemplateEngine;
 
 import plugins.mathplugin.Math;
 
@@ -29,7 +29,7 @@ public class Main {
     final static String CURRENT_DIRECTORY = System.getProperty("user.dir");
     
     
-    public static void main(String[] args) throws ConfigurationException {
+    public static void main(String[] args) throws ConfigurationException, IOException {
 
         OpenAIAsyncClient client = new OpenAIClientBuilder()
             .credential(new KeyCredential(AZURE_OPENAI_API_KEY))
@@ -38,8 +38,7 @@ public class Main {
 
 
         // Initialize the required functions and services for the kernel
-        Path yamlPath = Path.of(CURRENT_DIRECTORY + "/Plugins/ChatPlugin/Chat.prompt.yaml");
-        SKFunction chatFunction = SemanticFunction.getFunctionFromYaml(yamlPath);
+        SKFunction chatFunction = SemanticFunction.fromYaml("/Plugins/ChatPlugin/Chat.prompt.yaml");
 
         ChatCompletion<ChatHistory> gpt35Turbo = ChatCompletion.builder()
             .withOpenAIClient(client)
@@ -54,12 +53,12 @@ public class Main {
         // Create the intent plugin
         Plugin intentPlugin = new com.microsoft.semantickernel.v1.plugin.Plugin(
             "Intent",
-            SemanticFunction.getFunctionFromYaml(Path.of(CURRENT_DIRECTORY + "/Plugins/IntentPlugin/GetNextStep.prompt.yaml"))
+            SemanticFunction.fromYaml("/Plugins/IntentPlugin/GetNextStep.prompt.yaml")
         );  
         
         // Create the math plugin
         Collection<SKFunction> mathFunctions = NativeFunction.getFunctionsFromObject(new Math());
-        mathFunctions.add(SemanticFunction.getFunctionFromYaml(Path.of(CURRENT_DIRECTORY + "/Plugins/MathPlugin/GetNextStep.prompt.yaml")));
+        mathFunctions.add(SemanticFunction.fromYaml("/Plugins/MathPlugin/GenerateMathProblem.prompt.yaml"));
         Plugin math = new com.microsoft.semantickernel.v1.plugin.Plugin(
             "Math",
             mathFunctions

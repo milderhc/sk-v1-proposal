@@ -66,6 +66,11 @@ public class HandlebarsPlan implements SKFunction {
     }
 
     @Override
+    public Mono<FunctionResult> invokeAsync(Kernel kernel, ContextVariables variables, boolean streaming) {
+        return null;
+    }
+
+    @Override
     public Mono<SKContext> invokeAsync(SKContext context, @Nullable Object settings) {
         // TODO Auto-generated method stub
         return null;
@@ -84,7 +89,7 @@ public class HandlebarsPlan implements SKFunction {
         return null;
     }
 
-    @Override
+
     public Mono<FunctionResult> invokeAsync(Kernel kernel, Map<String,Object> variables) {
         // TODO Auto-generated method stub
         return null;

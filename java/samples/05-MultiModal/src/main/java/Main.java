@@ -1,32 +1,23 @@
 
+import java.io.IOException;
 import java.net.http.HttpClient;
-import java.nio.file.Path;
-import java.util.Collection;
 
 import com.azure.ai.openai.OpenAIAsyncClient;
 import com.azure.ai.openai.OpenAIClientBuilder;
 import com.azure.core.credential.KeyCredential;
 import com.microsoft.semantickernel.Kernel;
-import com.microsoft.semantickernel.KernelResult;
 import com.microsoft.semantickernel.SKBuilders;
-import com.microsoft.semantickernel.chatcompletion.ChatCompletion;
-import com.microsoft.semantickernel.chatcompletion.ChatHistory;
 import com.microsoft.semantickernel.exceptions.ConfigurationException;
-import com.microsoft.semantickernel.nativefunction.NativeFunction;
 import com.microsoft.semantickernel.orchestration.ContextVariables;
-import com.microsoft.semantickernel.orchestration.FunctionResult;
 import com.microsoft.semantickernel.orchestration.SKFunction;
 import com.microsoft.semantickernel.plugin.Plugin;
+import com.microsoft.semantickernel.semanticfunctions.SemanticFunction;
+import com.microsoft.semantickernel.templateengine.handlebars.HandlebarsPromptTemplateEngine;
 import com.microsoft.semantickernel.v1.aiservices.AIFunctionResultExtensions;
 import com.microsoft.semantickernel.v1.aiservices.huggingface.fillmasktask.HuggingFaceFillMaskTask;
 import com.microsoft.semantickernel.v1.aiservices.huggingface.questionansweringtask.HuggingFaceQuestionAnsweringTask;
 import com.microsoft.semantickernel.v1.aiservices.huggingface.summarizationtask.HuggingFaceSummarizationTask;
-import com.microsoft.semantickernel.v1.aiservices.huggingface.texttoimagetask.HuggingFaceTextToImageTask;
 import com.microsoft.semantickernel.v1.aiservices.ollama.OllamaGeneration;
-import com.microsoft.semantickernel.v1.semanticfunctions.SemanticFunction;
-import com.microsoft.semantickernel.v1.templateengine.HandlebarsPromptTemplateEngine;
-
-import plugins.searchplugin.Search;
 
 public class Main {
     
@@ -42,7 +33,7 @@ public class Main {
     final static String CURRENT_DIRECTORY = System.getProperty("user.dir");
     
     
-    public static void main(String[] args) throws ConfigurationException {
+    public static void main(String[] args) throws ConfigurationException, IOException  {
 
         OpenAIAsyncClient client = new OpenAIClientBuilder()
             .credential(new KeyCredential(AZURE_OPENAI_API_KEY))
@@ -53,15 +44,14 @@ public class Main {
         HuggingFaceFillMaskTask huggingFaceFillMaskTask = new HuggingFaceFillMaskTask("bert-base-uncased", HUGGING_FACE_API_KEY,  HttpClient.newHttpClient(), HUGGING_FACE_FILL_MASK_TASK_ENDPOINT);
         HuggingFaceQuestionAnsweringTask huggingFaceQuestionAnsweringTask = new HuggingFaceQuestionAnsweringTask("deepset/roberta-base-squad2", HUGGING_FACE_API_KEY,  HttpClient.newHttpClient(), HUGGING_FACE_QUESTION_ANSWERING_TASK_ENDPOINT);
         HuggingFaceSummarizationTask huggingFaceSummarizationTask = new HuggingFaceSummarizationTask("facebook/bart-large-cnn", HUGGING_FACE_API_KEY,  HttpClient.newHttpClient(), HUGGING_FACE_SUMMARIZATION_TASK_ENDPOINT);
-        HuggingFaceTextToImageTask huggingFaceTextToImageTask = new HuggingFaceTextToImageTask("runwayml/stable-diffusion-v1-5", HUGGING_FACE_API_KEY,  HttpClient.newHttpClient(), HUGGING_FACE_TEXT_TO_IMAGE_TASK_ENDPOINT);
         OllamaGeneration ollamaGeneration = new OllamaGeneration("wizard-math");
 
-        SKFunction fillMaskTaskFunction = SemanticFunction.getFunctionFromYaml(CURRENT_DIRECTORY + "/Plugins/HuggingFace/FillMaskTask.prompt.yaml");
-        SKFunction questionAnsweringTaskFunction = SemanticFunction.getFunctionFromYaml(CURRENT_DIRECTORY + "/Plugins/HuggingFace/QuestionAnsweringTask.prompt.yaml");
-        SKFunction summarizationTaskFunction = SemanticFunction.getFunctionFromYaml(CURRENT_DIRECTORY + "/Plugins/HuggingFace/SummarizationTask.prompt.yaml");
-        SKFunction textToImageTaskFunction = SemanticFunction.getFunctionFromYaml(CURRENT_DIRECTORY + "/Plugins/HuggingFace/TextToImageTask.prompt.yaml");
-        SKFunction imageToTextTaskFunction = SemanticFunction.getFunctionFromYaml(CURRENT_DIRECTORY + "/Plugins/HuggingFace/ImageToTextTask.prompt.yaml");
-        SKFunction ollamaGenerationFunction = SemanticFunction.getFunctionFromYaml(CURRENT_DIRECTORY + "/Plugins/Ollama/Math.prompt.yaml");
+        SKFunction fillMaskTaskFunction = SemanticFunction.fromYaml(CURRENT_DIRECTORY + "/Plugins/HuggingFace/FillMaskTask.prompt.yaml");
+        SKFunction questionAnsweringTaskFunction = SemanticFunction.fromYaml(CURRENT_DIRECTORY + "/Plugins/HuggingFace/QuestionAnsweringTask.prompt.yaml");
+        SKFunction summarizationTaskFunction = SemanticFunction.fromYaml(CURRENT_DIRECTORY + "/Plugins/HuggingFace/SummarizationTask.prompt.yaml");
+        SKFunction textToImageTaskFunction = SemanticFunction.fromYaml(CURRENT_DIRECTORY + "/Plugins/HuggingFace/TextToImageTask.prompt.yaml");
+        SKFunction imageToTextTaskFunction = SemanticFunction.fromYaml(CURRENT_DIRECTORY + "/Plugins/HuggingFace/ImageToTextTask.prompt.yaml");
+        SKFunction ollamaGenerationFunction = SemanticFunction.fromYaml(CURRENT_DIRECTORY + "/Plugins/Ollama/Math.prompt.yaml");
 
         // Create plugin
         Plugin huggingFaceTaskPlugin = new com.microsoft.semantickernel.v1.plugin.Plugin(
