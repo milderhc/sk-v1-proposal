@@ -1,5 +1,7 @@
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 
 import com.azure.ai.openai.OpenAIAsyncClient;
 import com.azure.ai.openai.OpenAIClientBuilder;
@@ -53,9 +55,12 @@ public class Main {
             .build();
 
         ChatHistory chatHistory = gpt35Turbo.createNewChat();
+
+        BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
         while(true)
         {
-            String input = System.console().readLine("User > ");
+            System.out.print("\nUser > ");
+            String input = bf.readLine();
             chatHistory.addUserMessage(input);
 
             // Run the simple chat
@@ -70,11 +75,11 @@ public class Main {
                 chatFunction
             ).block();
 
-            System.console().printf("Assistant > ");
+            System.out.print("Assistant > ");
             result.functionResults().forEach(
                 functionResult -> {
                     functionResult.<String>getStreamingValueAsync().subscribe(
-                        message -> System.console().printf(message)
+                        message -> System.out.print(message)
                     );
                     String message = functionResult.<String>getValueAsync().block();
                     chatHistory.addAssistantMessage(message);

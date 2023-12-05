@@ -1,7 +1,8 @@
 name: PersonaChat
-template: |
+template: |  
   {{#message role="system"}}
   {{persona}}
+  Do not answer with XML or any format.
   {{/message}}
 
   {{#each messages}}

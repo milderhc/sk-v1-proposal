@@ -7,6 +7,7 @@ import com.azure.ai.openai.OpenAIAsyncClient;
 import com.azure.ai.openai.OpenAIClientBuilder;
 import com.azure.core.credential.KeyCredential;
 import com.microsoft.semantickernel.Kernel;
+import com.microsoft.semantickernel.KernelResult;
 import com.microsoft.semantickernel.SKBuilders;
 import com.microsoft.semantickernel.chatcompletion.ChatCompletion;
 import com.microsoft.semantickernel.chatcompletion.ChatHistory;
@@ -48,19 +49,32 @@ public class Main {
 
         // Initialize the required functions and services for the kernel
         SemanticFunction chatFunction = SemanticFunction.fromYaml("Plugins/ChatPlugin/SimpleChat.prompt.yaml");
-        chatFunction.registerOnKernel(kernel);
 
         ChatHistory chatHistory = gpt35Turbo.createNewChat();
 
         BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
         while (true) {
-            System.out.print("User > ");
+            System.out.print("\nUser > ");
             String input = bf.readLine();
             chatHistory.addUserMessage(input);
 
-            String assistantMessage = chatFunction.invokeAsync(ContextVariables.builder().withVariable("messages", chatHistory).build()).block().getResult();
-            chatHistory.addAssistantMessage(assistantMessage);
-            System.out.println("Assistant > " + assistantMessage);
+            KernelResult result = kernel.runAsync(
+                    true,
+                    ContextVariables.builder().withVariable("messages", chatHistory).build(),
+                    chatFunction
+            ).block();
+
+            System.out.print("Assistant > ");
+            result.functionResults().forEach(
+                    functionResult -> {
+                        functionResult.<String>getStreamingValueAsync().subscribe(
+                                message -> System.out.print(message)
+                        );
+
+                        String message = functionResult.<String>getValue();
+                        chatHistory.addAssistantMessage(message);
+                    }
+            );
         }
     }
 }
