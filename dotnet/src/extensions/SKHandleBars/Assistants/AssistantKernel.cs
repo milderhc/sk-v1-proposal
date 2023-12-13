@@ -13,19 +13,15 @@ using YamlDotNet.Serialization;
 
 namespace Microsoft.SemanticKernel.Handlebars;
 
-public class AssistantKernel : IKernel, IPlugin
+public class AssistantKernel : Kernel, IPlugin
 {
-	private readonly Microsoft.SemanticKernel.Kernel kernel;
-
-	private readonly List<IPlugin> plugins;
-	private readonly List<IAIService> AIServices;
 
 	public string Id { get; private set; }
 	public string Name { get; }
 
     public string? Description { get; }
-
-    public string? Instructions { get; }
+		
+    private string? instructions { get; }
 
     IEnumerable<ISKFunction> IPlugin.Functions {
 		get { return this.functions; }
@@ -38,6 +34,10 @@ public class AssistantKernel : IKernel, IPlugin
 	private readonly string model;
 
 	private readonly List<ISKFunction> functions;
+
+    private readonly ModelRequestXmlConverter modelRequestXmlConverter = new();
+
+	private readonly List<VariableViewModel> inputs;
 
 	// Allows the creation of an assistant from a YAML file
 	public static AssistantKernel FromConfiguration(
@@ -61,6 +61,7 @@ public class AssistantKernel : IKernel, IPlugin
 			assistantKernelModel.Template,
 			aiServices,
 			plugins,
+			assistantKernelModel.InputVariables,
 			promptTemplateEngines
 		);
 	}
@@ -71,32 +72,19 @@ public class AssistantKernel : IKernel, IPlugin
 		string? instructions,
 		List<IAIService>? aiServices = null,
 		List<IPlugin>? plugins = null,
+		List<VariableViewModel>? inputs = null,
 		List<IPromptTemplateEngine>? promptTemplateEngines = null
-	)
+	) : base(aiServices, plugins, promptTemplateEngines)
 	{
 		this.Name = name;
 		this.Description = description;
-		this.Instructions = instructions;
-		this.AIServices = aiServices;
+		this.instructions = instructions;
+		this.inputs = inputs ?? new List<VariableViewModel>();
 		
 		// Grab the first AI service for the apiKey and model for the Assistants API
 		// This requires that the API key be made internal so it can be accessed here
 		this.apiKey = ((OpenAIChatCompletion)this.AIServices[0]).ApiKey;
 		this.model = ((OpenAIChatCompletion)this.AIServices[0]).ModelId;
-		
-		// Create a function collection using the plugins
-		FunctionCollection functionCollection = new FunctionCollection();
-		this.plugins = plugins ?? new List<IPlugin>();
-		if (plugins != null)
-		{
-			foreach(IPlugin plugin in plugins)
-			{
-				foreach(ISKFunction function in plugin.Functions)
-				{
-					functionCollection.AddFunction(plugin.Name, function);
-				}
-			}
-		}
 
 		// Create an AI service provider using the AI services
 		AIServiceCollection services = new AIServiceCollection();
@@ -112,27 +100,27 @@ public class AssistantKernel : IKernel, IPlugin
 				}
 			}
 		}
-		
-		// Initialize the prompt template engine
-		IPromptTemplateEngine promptTemplateEngine;
-		if (promptTemplateEngines != null && promptTemplateEngines.Count > 0)
+
+		List<ParameterView> askParameterView = new List<ParameterView>();
+		// check if this.inputs has a variable with the name "ask"
+		if (!this.inputs.Any(input => input.Name == "ask"))
 		{
-			promptTemplateEngine = promptTemplateEngines[0];
+			askParameterView.Add(new ParameterView("ask", typeof(string), "The question to ask " + this.Name, IsRequired: true));
 		}
-		else
+		foreach (var input in this.inputs)
 		{
-			promptTemplateEngine = new HandlebarsPromptTemplateEngine();
+			askParameterView.Add(new ParameterView(input.Name, typeof(string), input.Description, IsRequired: true));
 		}
 
-		// Create underlying kernel
-		this.kernel = new SemanticKernel.Kernel(
-			functionCollection,
-			services.Build(),
-			promptTemplateEngine,
-			null!,
-			NullHttpHandlerFactory.Instance,
-			null
-		);
+		List<ParameterView> replyBackParameterView = new List<ParameterView>
+        {
+            new ParameterView("reply", typeof(string), "The question to ask " + this.Name, IsRequired: true),
+            new ParameterView("threadId", typeof(string), "The ID of the previous thread with " + this.Name, IsRequired: true)
+        };
+		foreach (var input in this.inputs)
+		{
+			replyBackParameterView.Add(new ParameterView(input.Name, typeof(string), input.Description, IsRequired: true));
+		}
 
 		// Create functions so other kernels can use this kernel as a plugin
 		// TODO: make it possible for the ask function to have additional parameters based on the instruction template
@@ -141,13 +129,25 @@ public class AssistantKernel : IKernel, IPlugin
             NativeFunction.FromNativeFunction(
                 this.AskAsync,
                 "Ask",
-                this.Description,
-				new List<ParameterView>
-				{
-					new ParameterView("ask", typeof(string), "The question to ask the assistant"),
-				}
+                "Use this function to ask "+this.Name+" a request.\nDescription of the " +this.Name+" assistant: " + this.Description+"\nYou may call this function in parallel to start multiple threads with the "+this.Name+" assistant.",
+				askParameterView
             )
+            // NativeFunction.FromNativeFunction(
+            //     this.ReplyBackAsync,
+            //     "ReplyBack",
+            //     "If the response from "+this.Name+"-Ask requires a reply, use this function to reply back to the same thread",
+			// 	replyBackParameterView
+            // )
         };
+	}
+
+	private async Task<ModelRequest> GetInstructionsAsync(
+		Dictionary<string, object?> variables = default
+	)
+	{
+		string renderedTemplate = await kernel.PromptTemplateEngine.RenderAsync(this, this.instructions, variables);
+		renderedTemplate = "<request>" + renderedTemplate + "</request>";
+		return modelRequestXmlConverter.ParseXml(renderedTemplate, defaultRole: "system");
 	}
 
 	public async Task<FunctionResult> RunAsync(
@@ -160,8 +160,29 @@ public class AssistantKernel : IKernel, IPlugin
 		// Initialize the agent if it doesn't exist
 		await InitializeAgentAsync();
 
+		// Get the instructions for the assistant
+		var renderedPrompt = await GetInstructionsAsync(variables);
+
+		// Check if the first message in the instructions is a system message
+		if (renderedPrompt.Messages[0].Role != "system")
+		{
+			throw new Exception("The first message in the instructions must be a system message");
+		}
+		string instructions = renderedPrompt.Messages[0].Content.ToString()!;
+		
+		// Check if there is a user message in the rendered prompt
+		if (renderedPrompt.Messages.Count > 1 && renderedPrompt.Messages[1].Role == "user")
+		{
+			// Add the user message to the thread
+			thread.AddUserMessageAsync(renderedPrompt.Messages[1].Content.ToString()!);
+		}
+
+		// Clone variables and add the instructions (check if variables is null first)
+		var variablesWithInstructions = variables == null ? new Dictionary<string, object?>() : new Dictionary<string, object?>(variables);
+		variablesWithInstructions.Add("instructions", instructions);
+
 		// Invoke the thread
-		return await thread.InvokeAsync(this, variables, streaming, cancellationToken);
+		return await thread.InvokeAsync(this, variablesWithInstructions, streaming, cancellationToken);
 	}
 
 	public List<FunctionView> GetFunctionViews()
@@ -244,14 +265,9 @@ public class AssistantKernel : IKernel, IPlugin
 
 	private async Task<IThread> GetThreadAsync(string threadId)
 	{
-		
-		var requestData = new
-		{
-			thread_id = threadId
-		};
 
-		string url = "https://api.openai.com/v1/threads";
-		using var httpRequestMessage = HttpRequest.CreateGetRequest(url, requestData);
+		string url = "https://api.openai.com/v1/threads/"+threadId;
+		using var httpRequestMessage = HttpRequest.CreateGetRequest(url);
 
 		httpRequestMessage.Headers.Add("Authorization", $"Bearer {this.apiKey}");
 		httpRequestMessage.Headers.Add("OpenAI-Beta", "assistants=v1");
@@ -262,8 +278,7 @@ public class AssistantKernel : IKernel, IPlugin
 		return new OpenAIThread(threadModel.Id, apiKey, this);
 	}
 
-	// This is the function that is provided as part of the IPlugin interface
-	private async Task<string> AskAsync(string ask, string? threadId = default)
+	private async Task<string> SendMessageAsync(string ask, string threadId, Dictionary<string, object> variables)
 	{
 		// Hack to show logging in terminal
 		Console.ForegroundColor = ConsoleColor.Blue;
@@ -291,12 +306,12 @@ public class AssistantKernel : IKernel, IPlugin
 			thread = await GetThreadAsync(threadId);
 		}
 
-		// Add the message from the other assistant
+		// Add the ask to the thread
 		thread.AddUserMessageAsync(ask);
 
 		var results = await this.RunAsync(
 			thread,
-			variables: new Dictionary<string, object?>() {}
+			variables: variables
 		);
 
 		List<ModelMessage> modelMessages = results.GetValue<List<ModelMessage>>()!;
@@ -317,7 +332,30 @@ public class AssistantKernel : IKernel, IPlugin
 		Console.WriteLine(resultsString);
 		Console.ResetColor();
 
-		return resultsString;
+		// TODO: return AskResponse object once kernel supports complex types
+		// return new AskResponse() {
+		// 	ThreadId = thread.Id,
+		// 	Response = resultsString
+		// };
+
+		return JsonSerializer.Serialize(new AskResponse() {
+			ThreadId = thread.Id,
+			Response = resultsString,
+			Instructions = "Use the "+this.Name+"-ReplyBack function if you need to continue the conversation on this thread"
+		});
+	}
+
+	// This is the function that is provided as part of the IPlugin interface
+	private async Task<string> AskAsync(Dictionary<string, object> variables)
+	{
+		IThread thread = await CreateThreadAsync();
+
+		return await SendMessageAsync(variables["ask"].ToString(), thread.Id, variables);
+	}
+
+	private async Task<string> ReplyBackAsync(Dictionary<string, object> variables)
+	{
+		return await this.SendMessageAsync(variables["ask"].ToString(), variables["threadId"].ToString(), variables);
 	}
 
 

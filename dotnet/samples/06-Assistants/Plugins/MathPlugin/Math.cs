@@ -17,7 +17,7 @@ public class Math
     [SKOutputDescription("The answer to the math problem.")]
     public static async Task<string> PerformMath(
         IKernel kernel,
-        [Description("A description of a math problem; use the GenerateMathProblem function to create one.")] string math_problem
+        [Description("A description of a math problem; use the GenerateMathProblem function to create one.")] string math_word_problem
     )
     {
         int maxTries = 1;
@@ -33,7 +33,7 @@ public class Math
                 LastPlan = lastPlan, // Pass in the last plan in case we want to try again
                 LastError = lastError?.Message // Pass in the last error to avoid trying the same thing again
             });
-            var plan = await planner.CreatePlanAsync("Solve the following math problem.\n\n" + math_problem);
+            var plan = await planner.CreatePlanAsync("Solve the following math problem.\n\n" + math_word_problem);
             lastPlan = plan;
 
 

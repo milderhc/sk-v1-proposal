@@ -24,14 +24,14 @@ HuggingFaceFillMaskTask huggingFaceFillMaskTask = new("bert-base-uncased", Huggi
 HuggingFaceQuestionAnsweringTask huggingFaceQuestionAnsweringTask = new("deepset/roberta-base-squad2", HuggingFaceApiKey, endpoint: huggingFaceQuestionAnsweringTaskEndpoint);
 HuggingFaceSummarizationTask huggingFaceSummarizationTask = new("facebook/bart-large-cnn", HuggingFaceApiKey, endpoint: huggingFaceSummarizationTaskEndpoint);
 HuggingFaceTextToImageTask huggingFaceTextToImageTask = new("runwayml/stable-diffusion-v1-5", HuggingFaceApiKey, endpoint: huggingFaceTextToImageTaskEndpoint);
-
-ISKFunction chatFunction = SemanticFunction.GetFunctionFromYaml(currentDirectory + "/Plugins/ChatPlugin/GroundedChat.prompt.yaml");
+OllamaGeneration ollamaGeneration = new("wizard-math");
 
 ISKFunction fillMaskTaskFunction = SemanticFunction.GetFunctionFromYaml(currentDirectory + "/Plugins/HuggingFace/FillMaskTask.prompt.yaml");
 ISKFunction questionAnsweringTaskFunction = SemanticFunction.GetFunctionFromYaml(currentDirectory + "/Plugins/HuggingFace/QuestionAnsweringTask.prompt.yaml");
 ISKFunction summarizationTaskFunction = SemanticFunction.GetFunctionFromYaml(currentDirectory + "/Plugins/HuggingFace/SummarizationTask.prompt.yaml");
 ISKFunction textToImageTaskFunction = SemanticFunction.GetFunctionFromYaml(currentDirectory + "/Plugins/HuggingFace/TextToImageTask.prompt.yaml");
 ISKFunction imageToTextTaskFunction = SemanticFunction.GetFunctionFromYaml(currentDirectory + "/Plugins/HuggingFace/ImageToTextTask.prompt.yaml");
+ISKFunction ollamaGenerationFunction = SemanticFunction.GetFunctionFromYaml(currentDirectory + "/Plugins/Ollama/Math.prompt.yaml");
 
 // Create plugin
 Plugin huggingFaceTaskPlugin = new Plugin(
@@ -44,48 +44,61 @@ Plugin huggingFaceTaskPlugin = new Plugin(
     }
 );
 
+Plugin ollamaGenerationPlugin = new Plugin(
+    name: "Ollama",
+    functions: new () {
+        ollamaGenerationFunction
+    }
+);
+
 // Create new kernel
 IKernel kernel = new Kernel(
     aiServices: new () {
-        gpt35Turbo,
-        gpt4vision,
-        huggingFaceFillMaskTask,
-        huggingFaceQuestionAnsweringTask,
-        huggingFaceSummarizationTask,
-        huggingFaceTextToImageTask
+        // gpt35Turbo,
+        // gpt4vision,
+        // huggingFaceFillMaskTask,
+        // huggingFaceQuestionAnsweringTask,
+        // huggingFaceSummarizationTask,
+        // huggingFaceTextToImageTask
+        ollamaGeneration
     },
-    plugins: new () { huggingFaceTaskPlugin },
+    plugins: new () { ollamaGenerationPlugin },
     promptTemplateEngines: new () {new HandlebarsPromptTemplateEngine()}
 );
 
 
+// // Running Face Mask Task
+// var faceMaskTaskResult = await kernel.RunAsync( fillMaskTaskFunction, variables: new() {});
+// faceMaskTaskResult.TryGetMetadataValue<List<FillMaskTaskResponse>>(AIFunctionResultExtensions.ModelResultsMetadataKey, out var fillMaskTaskResponses);
+// PrintResult("Face Mask Task", faceMaskTaskResult.GetValue<string>()!, fillMaskTaskResponses);
 
-// Running Face Mask Task
-var faceMaskTaskResult = await kernel.RunAsync( fillMaskTaskFunction, variables: new() {});
-faceMaskTaskResult.TryGetMetadataValue<List<FillMaskTaskResponse>>(AIFunctionResultExtensions.ModelResultsMetadataKey, out var fillMaskTaskResponses);
-PrintResult("Face Mask Task", faceMaskTaskResult.GetValue<string>()!, fillMaskTaskResponses);
+// // Running Summarization Task
+// var summarizationTaskResult = await kernel.RunAsync( questionAnsweringTaskFunction, variables: new() {});
+// summarizationTaskResult.TryGetMetadataValue<List<SummarizationTaskResponse>>(AIFunctionResultExtensions.ModelResultsMetadataKey, out var summarizationTaskResponses);
+// PrintResult("Summarization Task", summarizationTaskResult.GetValue<string>()!, summarizationTaskResponses);
 
-// Running Summarization Task
-var summarizationTaskResult = await kernel.RunAsync( questionAnsweringTaskFunction, variables: new() {});
-summarizationTaskResult.TryGetMetadataValue<List<SummarizationTaskResponse>>(AIFunctionResultExtensions.ModelResultsMetadataKey, out var summarizationTaskResponses);
-PrintResult("Summarization Task", summarizationTaskResult.GetValue<string>()!, summarizationTaskResponses);
+// // Running Question Answering Task
+// var questionAnsweringTaskResult = await kernel.RunAsync( summarizationTaskFunction, variables: new() {});
+// questionAnsweringTaskResult.TryGetMetadataValue<QuestionAnsweringTaskResponse>(AIFunctionResultExtensions.ModelResultsMetadataKey, out var questionAnsweringTaskResponses);
+// PrintResult("Question Answering Task", questionAnsweringTaskResult.GetValue<string>()!, questionAnsweringTaskResponses);
 
-// Running Question Answering Task
-var questionAnsweringTaskResult = await kernel.RunAsync( summarizationTaskFunction, variables: new() {});
-questionAnsweringTaskResult.TryGetMetadataValue<QuestionAnsweringTaskResponse>(AIFunctionResultExtensions.ModelResultsMetadataKey, out var questionAnsweringTaskResponses);
-PrintResult("Question Answering Task", questionAnsweringTaskResult.GetValue<string>()!, questionAnsweringTaskResponses);
+// // Running Text to Image Task
+// var questionTextToImageResult = await kernel.RunAsync( textToImageTaskFunction, variables: new() {});
+// Image image = questionTextToImageResult.GetValue<Image>()!;
+// var filePath = "/Users/matthewbolanos/Downloads/image.png";
+// await File.WriteAllBytesAsync(filePath, image.Bytes);
+// PrintResult("Text to Image Task", filePath, image.ToString());
 
-// Text to Image Task
-var questionTextToImageResult = await kernel.RunAsync( textToImageTaskFunction, variables: new() {});
-Image image = questionTextToImageResult.GetValue<Image>()!;
-var filePath = "/Users/matthewbolanos/Downloads/image.png";
-await File.WriteAllBytesAsync(filePath, image.Bytes);
-PrintResult("Text to Image Task", filePath, image.ToString());
+// // Running Image to Text Task
+// var imageToTextResult = await kernel.RunAsync( imageToTextTaskFunction, variables: new() {});
+// imageToTextResult.TryGetMetadataValue<OpenAIChatResponse>(AIFunctionResultExtensions.ModelResultsMetadataKey, out var imageToTextTaskResponses);
+// PrintResult("Image to Text Task", imageToTextResult.GetValue<string>()!, imageToTextTaskResponses);
 
-// Running Question Answering Task
-var imageToTextResult = await kernel.RunAsync( imageToTextTaskFunction, variables: new() {});
-imageToTextResult.TryGetMetadataValue<OpenAIChatResponse>(AIFunctionResultExtensions.ModelResultsMetadataKey, out var imageToTextTaskResponses);
-PrintResult("Image to Text Task", imageToTextResult.GetValue<string>()!, imageToTextTaskResponses);
+// Running local Ollama Generation
+var mathResult = await kernel.RunAsync(ollamaGenerationFunction, variables: new() {});
+mathResult.TryGetMetadataValue<OllamaResponseModel>(AIFunctionResultExtensions.ModelResultsMetadataKey, out var ollamaGenerationResponses);
+PrintResult("Ollama Generation", mathResult.GetValue<string>()!, ollamaGenerationResponses);
+
 
 
 static void PrintResult(string title, object result, object? rawResult)
